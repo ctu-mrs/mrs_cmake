@@ -1,24 +1,32 @@
-# Add tests for cmake's VERIFY_INTERFACE_HEADER_SETS.
-#
-# This enables VERIFY_INTERFACE_HEADER_SETS on the specified target and adds
-# test that runs the verification.
-# 
-# Example call:
-# ```cmake
-# mrs_verify_interface_header_sets(my_library_target)
-# ```
-# 
-# Signature:
-# ```
-# mrs_verify_interface_header_sets(<target>
-#   [TIMEOUT <timeout>]
-# )
-# ```
-# 
-# Arguments:
-# - target - name of the target for which the test should be created
-# - timeout - timeout in seconds for the runtime of the test (default 600)
-# 
+#[=======================================================================[.rst:
+
+mrs_verify_interface_header_sets
+--------------------------------
+
+
+.. cmake:command:: mrs_verify_interface_header_sets
+
+  Add test using CMAKE_VERIFY_INTERFACE_HEADER_SETS for a specified target:
+
+  .. code-block:: cmake
+
+    mrs_verify_interface_header_sets(
+      <target>
+      [TIMEOUT <timeout>]
+    )
+  
+  This enables VERIFY_INTERFACE_HEADER_SETS on the specified target and adds
+  test that runs the verification.
+
+  Arguments:
+
+  * ``<target>``
+    Name of the target for which the test should be created.
+  * ``<timeout>``
+    Timeout in seconds for the runtime of the test (default 600).
+
+#]=======================================================================]
+
 function(mrs_verify_interface_header_sets target)
   set(options "")
   set(one_value_keywords "TIMEOUT")
