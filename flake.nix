@@ -5,8 +5,10 @@
   };
 
   outputs = { self, nix-ros-overlay, nixpkgs }:
+
     # This automatically loops through x86_64-linux, aarch64-linux, etc.
     nix-ros-overlay.inputs.flake-utils.lib.eachDefaultSystem (system:
+
       let
         pkgs = import nixpkgs {
           inherit system;
@@ -14,31 +16,31 @@
         };
 
         ros = pkgs.rosPackages.jazzy;
+        
+        deps = [
+          ros.ros-core
+          ros.ament-cmake-core
+          # ros.builtin-interfaces
+          # ros.python-cmake-module
+        ];
       in {
 
         # We drop ${system} here because eachDefaultSystem handles it
         packages.default = ros.buildRosPackage {
           pname = "mrs_cmake";
           version = "2.0.0";
-          
+
           # Use path syntax, not string syntax
           src = ./.;
-          
+
           buildType = "ament_cmake";
-          
-          nativeBuildInputs = [ 
-            ros.ament-cmake 
-            ros.rosidl-default-generators 
+
+          nativeBuildInputs = [
+            ros.ament-cmake
+            ros.rosidl-default-generators
           ];
-          
-          buildInputs = [ 
-            ros.ros-core
-            ros.ament-cmake-core
-            ros.builtin-interfaces
-            ros.python-cmake-module
-            # Added runtime requirement for messages
-            ros.rosidl-default-runtime
-          ];
+
+          buildInputs = deps;
         };
 
         devShells.default = pkgs.mkShell {
@@ -46,13 +48,7 @@
           packages = [
             pkgs.colcon
             (ros.buildEnv {
-              paths = [
-                ros.ros-core
-                ros.ament-cmake 
-                ros.ament-cmake-core
-                ros.builtin-interfaces
-                ros.python-cmake-module
-              ];
+              paths = deps;
             })
           ];
         };
