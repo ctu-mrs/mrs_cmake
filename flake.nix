@@ -1,62 +1,84 @@
 {
   inputs = {
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    devenv.url = "github:cachix/devenv";
+
+    nixpkgs.follows = "devenv/nixpkgs";
+
+    # 2. Define the ROS overlay FIRST
     nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
-    nixpkgs.follows = "nix-ros-overlay/nixpkgs";
+    ros-nixpkgs.follows = "nix-ros-overlay/nixpkgs";
   };
 
-  outputs = { self, nix-ros-overlay, nixpkgs }:
+  outputs = inputs@{ flake-parts, ... }:
 
-    # This automatically loops through x86_64-linux, aarch64-linux, etc.
-    nix-ros-overlay.inputs.flake-utils.lib.eachDefaultSystem (system:
+    flake-parts.lib.mkFlake { inherit inputs; } {
 
-      let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ nix-ros-overlay.overlays.default ];
-        };
+      # 1. Import the devenv module natively
+      imports = [
+        inputs.devenv.flakeModule
+      ];
 
-        ros = pkgs.rosPackages.jazzy;
-        
-        deps = [
-          ros.ros-core
-          ros.ament-cmake-core
-          # ros.builtin-interfaces
-          # ros.python-cmake-module
-        ];
-      in {
+      systems = [ "x86_64-linux" ];
 
-        # We drop ${system} here because eachDefaultSystem handles it
-        packages.default = ros.buildRosPackage {
-          pname = "mrs_cmake";
-          version = "2.0.0";
+      # 3. Everything in here is automatically generated for each system above
+      perSystem = { config, self', inputs', pkgs, system, ... }:
 
-          # Use path syntax, not string syntax
-          src = ./.;
+        let
+          # Apply your ROS overlay for this specific system
+          rosPkgs = import inputs.ros-nixpkgs {
+            inherit system;
+            overlays = [ inputs.nix-ros-overlay.overlays.default ];
+          };
 
-          buildType = "ament_cmake";
+          ros = rosPkgs.rosPackages.jazzy;
 
-          nativeBuildInputs = [
-            ros.ament-cmake
-            ros.rosidl-default-generators
+          rosDeps = [
+            ros.ros-core
+            ros.ament-cmake-core
           ];
+        in
+        {
+          # --- The Local Developer Environment ---
+          # devenv.shells handles all the mkShell boilerplate behind the scenes
+          devenv.shells.default = {
 
-          buildInputs = deps;
+            name = "mrs_cmake-dev-shell";
+
+            _module.args = {
+              inherit rosPkgs; # This passes the rosPkgs you defined above
+              inherit rosDeps;
+            };
+
+            devenv.root =
+              let
+                folder = builtins.getEnv "PWD";
+                isInsideWorkTree = folder != "";
+              in
+                if isInsideWorkTree
+                then folder
+                else "${./.}";
+
+            imports = [ ./devenv.nix ];
+          };
+
+          # --- The C++ Package Builder ---
+          packages.default = ros.buildRosPackage {
+            pname = "mrs_cmake";
+            version = "2.0.0";
+            src = ./.;
+            buildType = "ament_cmake";
+            nativeBuildInputs = [ ros.ament-cmake ros.rosidl-default-generators ];
+            propagatedBuildInputs = rosDeps;
+          };
         };
 
-        devShells.default = pkgs.mkShell {
-          name = "mrs_cmake";
-          packages = [
-            pkgs.colcon
-            (ros.buildEnv {
-              paths = deps;
-            })
-          ];
+      # 4. Global flake configurations live at the bottom
+      flake = {
+        nixConfig = {
+          extra-substituters = [ "https://ctu-mrs.cachix.org" "https://ros.cachix.org" "https://devenv.cachix.org" ];
+          extra-trusted-public-keys = [ "ctu-mrs.cachix.org-1:dnw2ixFgGHfTb4bE1MWQTetAUJe9zqKUOBlrTjDuDMI=" "ros.cachix.org-1:dSyZxI8geDCJrwgvCOHDoAfOm5sV1wCPjBkKL+38Rvo=" "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=" ];
         };
-      });
-
-  # This configures Nix to download pre-built ROS binaries instead of compiling C++ from scratch
-  nixConfig = {
-    extra-substituters = [ "https://ros.cachix.org" ];
-    extra-trusted-public-keys = [ "ros.cachix.org-1:dSyZxI8geDCJrwgvCOHDoAfOm5sV1wCPjBkKL+38Rvo=" ];
-  };
+      };
+    };
 }
