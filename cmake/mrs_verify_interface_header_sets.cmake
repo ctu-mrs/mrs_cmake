@@ -58,7 +58,7 @@ function(mrs_verify_interface_header_sets target)
 
   ament_add_test("${test_target_name}"
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
-    COMMAND cmake --build . --config $<CONFIG> --target "${test_target_name}"
+    COMMAND ${CMAKE_COMMAND} --build . --config $<CONFIG> --target "${test_target_name}"
     TIMEOUT "${timeout}"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
   )
